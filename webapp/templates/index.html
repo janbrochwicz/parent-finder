@@ -49,9 +49,19 @@
     }
     nav .logo img { height: 22px; width: auto; display: block; }
     nav .nav-tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
       font-size: 0.78rem;
       color: var(--muted);
       letter-spacing: 0.01em;
+    }
+    nav .nav-joke {
+      height: 24px;
+      width: 24px;
+      border-radius: 50%;
+      object-fit: cover;
+      display: block;
     }
 
     main {
@@ -183,7 +193,7 @@
 <body>
   <nav>
     <a class="logo" href="/" aria-label="Workflows.io"><img src="/static/img/workflows-logo.png" alt="workflows.io"></a>
-    <span class="nav-tag">Parent Company Finder</span>
+    <span class="nav-tag">Parent Company Finder <img class="nav-joke" src="/static/img/lil-dan.png" alt=""></span>
   </nav>
 
   <main>
