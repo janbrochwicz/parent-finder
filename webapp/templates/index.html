@@ -33,7 +33,8 @@
       font-family: var(--font-sans);
       font-weight: 400;
       -webkit-font-smoothing: antialiased;
-      text-rendering: optimizeLegibility;
+      font-variation-settings: "wght" 400;
+      font-kerning: normal;
       display: flex;
       flex-direction: column;
       min-height: 100%;
@@ -77,9 +78,10 @@
 
     h1 {
       font-size: clamp(2.3rem, 5.2vw, 3.4rem);
-      font-weight: 270;
-      letter-spacing: -0.025em;
-      line-height: 1.07;
+      font-weight: 400;
+      font-variation-settings: "wght" 380;
+      letter-spacing: -0.015em;
+      line-height: 1.08;
       margin: 26px 0 18px;
     }
     h1 .hl-lime {
