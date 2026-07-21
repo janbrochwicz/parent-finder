@@ -1,0 +1,8 @@
+.git
+__pycache__/
+*.pyc
+.venv/
+venv/
+.env
+webapp/_load/
+webapp/_rows.json

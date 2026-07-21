@@ -1,0 +1,35 @@
+# DigitalOcean App Platform spec for the Parent Company Finder.
+# Deploy:  doctl apps create --spec .do/app.yaml
+# Secrets (SUPABASE_SERVICE_KEY, ANTHROPIC_API_KEY, FLASK_SECRET_KEY) are set
+# after creation in the DO dashboard, or via --spec with values filled in.
+name: parent-finder
+region: fra
+services:
+  - name: web
+    dockerfile_path: Dockerfile
+    source_dir: /
+    github:
+      repo: Elemxm/Workflows.io-Hackathon
+      branch: main
+      deploy_on_push: true
+    http_port: 8080
+    instance_size_slug: apps-s-1vcpu-0.5gb
+    instance_count: 1
+    health_check:
+      http_path: /healthz
+    envs:
+      - key: SUPABASE_URL
+        scope: RUN_TIME
+        value: https://ceredhebibmhqxqvxgid.supabase.co
+      - key: SUPABASE_SERVICE_KEY
+        scope: RUN_TIME
+        type: SECRET
+      - key: ANTHROPIC_API_KEY
+        scope: RUN_TIME
+        type: SECRET
+      - key: FLASK_SECRET_KEY
+        scope: RUN_TIME
+        type: SECRET
+      - key: MAX_LLM_LOOKUPS
+        scope: RUN_TIME
+        value: "25"

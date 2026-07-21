@@ -3,7 +3,7 @@ import json
 
 from lib import no_parent_evidence, normalize_domain
 
-MODEL = "claude-sonnet-5"
+MODEL = "claude-haiku-4-5"
 
 SCHEMA = {
     "type": "object",
@@ -52,7 +52,7 @@ For the company you're given:
 
 def resolve_company(client, name, domain):
     """Look up one company's parent via Claude + web search. Returns a dict matching SCHEMA."""
-    tools = [{"type": "web_search_20260209", "name": "web_search", "max_uses": 5}]
+    tools = [{"type": "web_search_20260209", "name": "web_search", "max_uses": 3}]
     messages = [
         {
             "role": "user",
