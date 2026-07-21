@@ -93,6 +93,23 @@
       color: var(--ink);
       max-width: 100%;
     }
+    input[type=password] {
+      width: 100%;
+      font-size: 0.9rem;
+      color: var(--ink);
+      background: #ffffff;
+      padding: 13px 15px;
+      border: 1px solid var(--border-grey);
+      border-radius: 0.7rem;
+      margin-bottom: 8px;
+      font-family: inherit;
+    }
+    .key-hint {
+      color: var(--muted);
+      font-size: 0.8rem;
+      line-height: 1.5;
+      margin: 0 0 20px;
+    }
 
     button {
       width: 100%;
@@ -164,6 +181,13 @@
         <div class="dropzone">
           <input type="file" name="csv_file" accept=".csv" required>
         </div>
+        <input type="password" name="api_key" autocomplete="off"
+               placeholder="Anthropic API key (sk-ant-...)">
+        <p class="key-hint">
+          Only used to research companies that aren't already in our database.
+          Your key is used for this upload only, never stored. Leave blank to use
+          the database alone.
+        </p>
         <button type="submit">Find parent companies</button>
       </form>
       <p id="status">Processing... this can take a minute or more depending on how many companies need a fresh lookup.</p>

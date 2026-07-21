@@ -94,7 +94,10 @@ def process():
     known = fetch_known(normalize_domain(r.get(domain_col, "")) for r in rows)
     out_fields = fieldnames + ["Parent Company Name", "Parent Company Domain", "Verified", "Evidence"]
 
-    client = anthropic.Anthropic()
+    # Bring-your-own-key: use the key the user pastes into the form for this upload;
+    # fall back to a server-configured key if one is set. Never stored or logged.
+    api_key = (request.form.get("api_key") or "").strip() or os.environ.get("ANTHROPIC_API_KEY", "")
+    client = anthropic.Anthropic(api_key=api_key) if api_key else None
     llm_used = 0
 
     final_rows = []
@@ -122,6 +125,15 @@ def process():
             out["Parent Company Domain"] = ""
             out["Verified"] = "No"
             out["Evidence"] = "No domain provided for this row."
+        elif client is None:
+            # No API key provided - can't research unknowns, so don't guess.
+            out["Parent Company Name"] = ""
+            out["Parent Company Domain"] = ""
+            out["Verified"] = "No"
+            out["Evidence"] = (
+                "Not in database. Add an Anthropic API key to resolve companies "
+                "that haven't been seen before."
+            )
         elif llm_used >= MAX_LLM_LOOKUPS:
             # Cost cap reached - stop calling Claude, don't guess.
             out["Parent Company Name"] = ""
