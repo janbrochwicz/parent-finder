@@ -1,30 +1,10 @@
 """Resolve a single company's parent/owning company via Claude + web search."""
 import json
+import re
 
 from lib import no_parent_evidence, normalize_domain
 
 MODEL = "claude-haiku-4-5"
-
-SCHEMA = {
-    "type": "object",
-    "properties": {
-        "parent_name": {
-            "type": "string",
-            "description": "Name of the parent/owning company. Leave empty if the company has no parent.",
-        },
-        "parent_domain": {
-            "type": "string",
-            "description": "Domain of the parent/owning company. Leave empty if the company has no parent.",
-        },
-        "verified": {"type": "string", "enum": ["Yes", "No", "Maybe"]},
-        "evidence": {
-            "type": "string",
-            "description": "One-line justification citing what was found",
-        },
-    },
-    "required": ["parent_name", "parent_domain", "verified", "evidence"],
-    "additionalProperties": False,
-}
 
 SYSTEM_PROMPT = """You identify the parent/owning company for a given company, using web search.
 
@@ -47,11 +27,35 @@ For the company you're given:
    operates the exact same website/domain as the company itself, treat this as verified="No" with
    empty parent_name/parent_domain - do not name the operating entity as the parent.
 4. Write one line of evidence explaining the verdict.
+
+When you are done researching, output ONLY a JSON object as your final message - no prose, no
+markdown fences - with exactly these keys:
+{"parent_name": "", "parent_domain": "", "verified": "Yes|No|Maybe", "evidence": ""}
 """
+
+FALLBACK_KEYS = ("parent_name", "parent_domain", "verified", "evidence")
+
+
+def _empty(verified, evidence):
+    return {"parent_name": "", "parent_domain": "", "verified": verified, "evidence": evidence}
+
+
+def _extract_json(text):
+    """Pull the JSON object out of the model's text response, tolerant of stray prose/fences."""
+    if not text:
+        return None
+    for candidate in (text.strip(), *re.findall(r"\{.*?\}", text, re.DOTALL)[::-1]):
+        try:
+            obj = json.loads(candidate)
+        except (json.JSONDecodeError, TypeError):
+            continue
+        if isinstance(obj, dict) and "verified" in obj:
+            return {k: (obj.get(k) or "") for k in FALLBACK_KEYS}
+    return None
 
 
 def resolve_company(client, name, domain):
-    """Look up one company's parent via Claude + web search. Returns a dict matching SCHEMA."""
+    """Look up one company's parent via Claude + web search. Never raises - always returns a dict."""
     tools = [{"type": "web_search_20260209", "name": "web_search", "max_uses": 3}]
     messages = [
         {
@@ -63,37 +67,25 @@ def resolve_company(client, name, domain):
             ),
         }
     ]
+    kwargs = dict(model=MODEL, max_tokens=2000, system=SYSTEM_PROMPT, tools=tools)
 
-    kwargs = dict(
-        model=MODEL,
-        max_tokens=2000,
-        system=SYSTEM_PROMPT,
-        tools=tools,
-        output_config={"format": {"type": "json_schema", "schema": SCHEMA}},
-    )
-
-    response = client.messages.create(messages=messages, **kwargs)
-
-    # Server-side search hit its internal iteration cap - resend to continue, no extra prompt needed.
-    if response.stop_reason == "pause_turn":
-        messages.append({"role": "assistant", "content": response.content})
-        response = client.messages.create(messages=messages, **kwargs)
-
-    text = next((b.text for b in response.content if b.type == "text"), None)
-    if not text:
-        return {"parent_name": "", "parent_domain": "", "verified": "No", "evidence": "No response from model"}
     try:
-        result = json.loads(text)
-    except json.JSONDecodeError:
-        return {
-            "parent_name": "",
-            "parent_domain": "",
-            "verified": "No",
-            "evidence": f"Could not parse model output: {text[:200]}",
-        }
+        response = client.messages.create(messages=messages, **kwargs)
+        # Server-side search can pause its internal loop; resume up to a few times.
+        guard = 0
+        while response.stop_reason == "pause_turn" and guard < 4:
+            messages.append({"role": "assistant", "content": response.content})
+            response = client.messages.create(messages=messages, **kwargs)
+            guard += 1
+    except Exception as e:  # bad key, rate limit, model/tool error - degrade, don't crash the upload
+        return _empty("No", f"Lookup could not run ({type(e).__name__}). Check the API key and try again.")
 
-    # Guardrail: never let the parent domain equal the company's own domain, regardless of
-    # what the model returned - that's not a parent, it's the same company (see prompt point 3).
+    text = "".join(b.text for b in response.content if getattr(b, "type", None) == "text")
+    result = _extract_json(text)
+    if result is None:
+        return _empty("No", "Lookup returned no parseable result.")
+
+    # Guardrail: never let the parent domain equal the company's own domain - that's not a parent.
     if normalize_domain(result.get("parent_domain", "")) == domain:
         result["parent_name"] = ""
         result["parent_domain"] = ""
