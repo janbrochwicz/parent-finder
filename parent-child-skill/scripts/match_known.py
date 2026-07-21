@@ -12,7 +12,7 @@ import argparse
 import csv
 import os
 
-from lib import normalize_domain, find_column
+from lib import normalize_domain, find_column, no_parent_evidence
 
 DOMAIN_KEYWORDS = ["domain"]
 NAME_KEYWORDS = ["company name", "name"]
@@ -47,6 +47,7 @@ def main():
     domain_col = find_column(fieldnames, DOMAIN_KEYWORDS)
     if not domain_col:
         raise SystemExit(f"Could not find a domain column in input headers: {fieldnames}")
+    name_col = find_column(fieldnames, NAME_KEYWORDS)
 
     matched_fields = fieldnames + ["Parent Company Name", "Parent Company Domain", "Verified", "Evidence"]
     matched, unmatched = [], []
@@ -56,10 +57,19 @@ def main():
         hit = known.get(domain)
         if hit:
             out = dict(row)
-            out["Parent Company Name"] = hit["parent_name"]
-            out["Parent Company Domain"] = hit["parent_domain"]
-            out["Verified"] = "Yes"
-            out["Evidence"] = hit["evidence"]
+            name = row.get(name_col, "") if name_col else ""
+            # Guardrail: a stored "parent" that's just the child's own domain isn't a parent
+            # (legacy self-referencing rows) - normalize on read regardless of what's stored.
+            if hit["parent_domain"] and hit["parent_domain"] == domain:
+                out["Parent Company Name"] = ""
+                out["Parent Company Domain"] = ""
+                out["Verified"] = "No"
+                out["Evidence"] = no_parent_evidence(name or hit.get("child_name"), hit["evidence"])
+            else:
+                out["Parent Company Name"] = hit["parent_name"]
+                out["Parent Company Domain"] = hit["parent_domain"]
+                out["Verified"] = hit["verified"]
+                out["Evidence"] = hit["evidence"]
             matched.append(out)
         else:
             unmatched.append(row)

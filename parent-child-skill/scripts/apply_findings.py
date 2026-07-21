@@ -59,18 +59,30 @@ def main():
     today = datetime.date.today().isoformat()
     added = 0
     for row in findings:
-        if row.get("Verified", "").strip().lower() != "yes":
-            continue
+        verified = row.get("Verified", "").strip().lower()
+        if verified not in ("yes", "no"):
+            continue  # only store confirmed Yes/No verdicts; skip "Maybe"
+
         child_domain = normalize_domain(row.get(domain_col, ""))
-        parent_domain = normalize_domain(row.get("Parent Company Domain", ""))
-        if not child_domain or not parent_domain or child_domain in existing:
+        if not child_domain or child_domain in existing:
             continue
+
+        if verified == "yes":
+            parent_domain = normalize_domain(row.get("Parent Company Domain", ""))
+            # A "parent" that's just the child's own domain isn't a parent - don't store it as one.
+            if not parent_domain or parent_domain == child_domain:
+                continue
+            parent_name = row.get("Parent Company Name", "").strip()
+        else:
+            parent_domain = ""
+            parent_name = ""
+
         existing[child_domain] = {
             "child_name": row.get(name_col, "").strip(),
             "child_domain": child_domain,
-            "parent_name": row.get("Parent Company Name", "").strip(),
+            "parent_name": parent_name,
             "parent_domain": parent_domain,
-            "verified": "Yes",
+            "verified": "Yes" if verified == "yes" else "No",
             "evidence": row.get("Evidence", "").strip(),
             "verification_method": "LLM+web search",
             "date_added": today,

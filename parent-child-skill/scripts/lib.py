@@ -21,3 +21,17 @@ def find_column(fieldnames, keywords):
             if kw in low:
                 return fn
     return None
+
+
+def no_parent_evidence(name, detail=""):
+    """Canonical evidence string for a confirmed 'no parent' verdict.
+
+    A company operating under its own legal entity name (e.g. an LLC with the same
+    domain) is NOT a parent - only a genuinely separate acquiring/owning company counts.
+    """
+    label = (name or "").strip() or "This company"
+    msg = f"No parent company found - {label} operates independently."
+    detail = (detail or "").strip()
+    if detail and "heuristic" not in detail.lower():
+        msg += f" ({detail})"
+    return msg
